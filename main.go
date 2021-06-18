@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/pkg/errors"
 	"log"
@@ -13,12 +14,12 @@ import (
 )
 
 var (
-	db                        = DB{}
-	wg                        sync.WaitGroup
-	gorutineQuantity          int64
-	gorutineIterationQuantity int64
-	transactionsQuantity      int64
-	letterRunes               = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	db                         = DB{}
+	wg                         sync.WaitGroup
+	goroutineQuantity          = int64(0)
+	goroutineIterationQuantity = int64(0)
+	transactionsQuantity       = int64(0)
+	letterRunes                = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
 
 func main() {
@@ -38,9 +39,48 @@ func main() {
 		}
 	}()
 	defer cancel()
+	t0 := time.Now()
+	log.Println("старт горутин")
+	for i := int64(0); i < goroutineQuantity; i++ {
+		go func() {
+			err = writeData(ctx, db.DB1, goroutineIterationQuantity, transactionsQuantity, i)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+	t1 := time.Now()
+	fmt.Println("Время выполнения программы", t1.Sub(t0))
 }
 
-func genData(trq int64) (query string, err error) {
+func writeData(ctx context.Context, db *sql.DB, iterationQuantity int64, transactionsQuantity int64, id int64) (err error) {
+	defer wg.Done()
+	defer func() { err = errors.Wrap(err, "main.writeData") }()
+	log.Println(id, "goroutine start")
+	for i := int64(0); i < iterationQuantity; i++ {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			str, err := genData(transactionsQuantity)
+			if err != nil {
+				return err
+			}
+			_, err = db.Exec(str)
+			if err != nil {
+				err = errors.Wrap(err, "failed query exec")
+				return
+			}
+		}
+	}
+	log.Println(id, "goroutine stop")
+	return err
+}
+
+func genData(transactionsQuantity int64) (query string, err error) {
 	defer func() { err = errors.Wrap(err, "main.genData") }()
 
 	type Data struct {
@@ -53,7 +93,7 @@ func genData(trq int64) (query string, err error) {
 	var d Data
 	var strQuery = []string{}
 
-	for i := int64(0); i < trq; i++ {
+	for i := int64(0); i < transactionsQuantity; i++ {
 		d = Data{}
 		month := rand.Intn(12-1) + 1
 		day := rand.Intn(16-1) + 1
@@ -63,7 +103,7 @@ func genData(trq int64) (query string, err error) {
 		d.Company = randomString(50)
 		d.Price = rand.Int63n(5000000)
 
-		if i != trq-1 {
+		if i != transactionsQuantity-1 {
 			strQuery = append(strQuery, fmt.Sprintf("(%s, %s, %d, %s), ", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
 		} else {
 			strQuery = append(strQuery, fmt.Sprintf("(%s, %s, %d, %s)", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
