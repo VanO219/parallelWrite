@@ -16,9 +16,9 @@ import (
 var (
 	db                         = DB{}
 	wg                         sync.WaitGroup
-	goroutineQuantity          = int64(0)
-	goroutineIterationQuantity = int64(0)
-	transactionsQuantity       = int64(0)
+	goroutineQuantity          = 6
+	goroutineIterationQuantity = int64(1)
+	transactionsQuantity       = int64(1)
 	letterRunes                = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
 
@@ -39,9 +39,10 @@ func main() {
 		}
 	}()
 	defer cancel()
+	wg.Add(goroutineQuantity)
 	t0 := time.Now()
 	log.Println("старт горутин")
-	for i := int64(0); i < goroutineQuantity; i++ {
+	for i := 0; i < goroutineQuantity; i++ {
 		go func() {
 			err = writeData(ctx, db.DB1, goroutineIterationQuantity, transactionsQuantity, i)
 			if err != nil {
@@ -56,7 +57,7 @@ func main() {
 	fmt.Println("Время выполнения программы", t1.Sub(t0))
 }
 
-func writeData(ctx context.Context, db *sql.DB, iterationQuantity int64, transactionsQuantity int64, id int64) (err error) {
+func writeData(ctx context.Context, db *sql.DB, iterationQuantity int64, transactionsQuantity int64, id int) (err error) {
 	defer wg.Done()
 	defer func() { err = errors.Wrap(err, "main.writeData") }()
 	log.Println(id, "goroutine start")
@@ -72,7 +73,7 @@ func writeData(ctx context.Context, db *sql.DB, iterationQuantity int64, transac
 			_, err = db.Exec(str)
 			if err != nil {
 				err = errors.Wrap(err, "failed query exec")
-				return
+				return err
 			}
 		}
 	}
@@ -104,9 +105,9 @@ func genData(transactionsQuantity int64) (query string, err error) {
 		d.Price = rand.Int63n(5000000)
 
 		if i != transactionsQuantity-1 {
-			strQuery = append(strQuery, fmt.Sprintf("(%s, %s, %d, %s), ", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
+			strQuery = append(strQuery, fmt.Sprintf("('%s', '%s', %d, %s), ", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
 		} else {
-			strQuery = append(strQuery, fmt.Sprintf("(%s, %s, %d, %s)", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
+			strQuery = append(strQuery, fmt.Sprintf("('%s', '%s', %d, %s)", d.Model, d.Company, d.Price, d.Date.Format(time.RFC3339)))
 		}
 	}
 
@@ -127,7 +128,7 @@ func genData(transactionsQuantity int64) (query string, err error) {
 		err = errors.Wrap(err, "failed template execute")
 		return "", err
 	}
-
+	fmt.Println(b.String())
 	return b.String(), err
 }
 
