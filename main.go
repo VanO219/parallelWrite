@@ -40,6 +40,8 @@ func main() {
 		}
 	}()
 	defer cancel()
+	allRows := int64(goroutineQuantity) * goroutineIterationQuantity * rowsQuantity
+	fmt.Println(fmt.Sprintf("В базу данных будет записано %d строк в %d потоках по %d строк в транзакции ", allRows,))
 	wg.Add(goroutineQuantity)
 	t0 := time.Now()
 	log.Println("старт горутин")
