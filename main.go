@@ -16,9 +16,9 @@ import (
 var (
 	db                         = DB{}
 	wg                         sync.WaitGroup
-	goroutineQuantity          = 4
-	goroutineIterationQuantity = int64(250)
-	rowsQuantity               = int64(1000)
+	goroutineQuantity          = 8
+	goroutineIterationQuantity = int64(125)
+	rowsQuantity               = int64(2000)
 	ch                         = make(chan bool)
 	letterRunes                = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 )
@@ -41,7 +41,8 @@ func main() {
 	}()
 	defer cancel()
 	allRows := int64(goroutineQuantity) * goroutineIterationQuantity * rowsQuantity
-	fmt.Println(fmt.Sprintf("В базу данных будет записано %d строк в %d потоках по %d строк в транзакции ", allRows,))
+	fmt.Println(fmt.Sprintf("В базу данных будет записано %d строк в %d потоках по %d строк в транзакции по %d итераций в каждом потоке",
+		allRows, goroutineQuantity, rowsQuantity, goroutineIterationQuantity))
 	wg.Add(goroutineQuantity)
 	t0 := time.Now()
 	log.Println("старт горутин")
